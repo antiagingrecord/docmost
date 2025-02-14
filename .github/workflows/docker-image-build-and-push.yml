@@ -24,8 +24,13 @@ jobs:
         uses: Ilshidur/action-discord@master
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_AVATAR: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+
         with:
-          args: '🚀 Docker Build Workflow が開始されました\nリポジトリ: ${{ github.repository }}\nブランチ: ${{ github.ref }}'
+          args: |
+            🚀 **Docker Build Workflow が開始されました!**
+            リポジトリ: ${{ github.repository }} 
+            ブランチ: ${{ github.ref }}
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -55,14 +60,23 @@ jobs:
         if: success()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_AVATAR: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
         with:
-          args: '✅ Docker Build Workflow が成功しました\nリポジトリ: ${{ github.repository }}\nブランチ: ${{ github.ref }}\nコミット: ${{ github.sha }}'
+          args: |
+            ✅ **Docker Build Workflow が成功しました**
+            リポジトリ: ${{ github.repository }}
+            ブランチ: ${{ github.ref }}
+            コミット: ${{ github.sha }}
 
       - name: Failure Discord Notification
         uses: Ilshidur/action-discord@master
         if: failure()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_AVATAR: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
         with:
-          args: '❌ Docker Build Workflow が失敗しました\nリポジトリ: ${{ github.repository }}\nブランチ: ${{ github.ref }}\nコミット: ${{ github.sha }}'
-          
+          args: |
+            ❌ **Docker Build Workflow が失敗しました**
+            リポジトリ: ${{ github.repository }}
+            ブランチ: ${{ github.ref }}
+            コミット: ${{ github.sha }}

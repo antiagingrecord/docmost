@@ -31,13 +31,21 @@ jobs:
         if: success()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_AVATAR: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
         with:
-          args: '✅ VPSへのデプロイが完了しました\nリポジトリ: ${{ github.repository }}\nブランチ: ${{ github.ref }}'
+          args: |
+            ✅ **VPSへのデプロイが完了しました**
+            リポジトリ: ${{ github.repository }}
+            ブランチ: ${{ github.ref }}
 
       - name: Deploy Failure Discord Notification
         uses: Ilshidur/action-discord@master
         if: failure()
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_AVATAR: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
         with:
-          args: '❌ VPSへのデプロイが失敗しました\nリポジトリ: ${{ github.repository }}\nブランチ: ${{ github.ref }}'
+          args: |
+            ❌ **VPSへのデプロイが失敗しました**
+            リポジトリ: ${{ github.repository }}
+            ブランチ: ${{ github.ref }}'
