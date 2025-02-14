@@ -1,0 +1,33 @@
+name: Continuous Upstream Merge
+
+on:
+  schedule:
+    # cron 毎日4時に実行
+    - cron: '0 19 * * *'
+  workflow_dispatch: # 手動実行も可能
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0  # 完全な履歴を取得
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream repository
+        run: |
+          git remote add upstream https://github.com/auxa-m45/docmost.git
+          git fetch upstream
+
+      - name: Merge upstream/feat/aar_edition into feat/aar_edition
+        run: |
+          git checkout feat/aar_edition
+          git merge --no-edit upstream/feat/aar_edition || true
+          git push origin feat/aar_edition
