@@ -5,14 +5,20 @@ on:
     branches: [ "feat/aar_edition" ]
   pull_request:
     branches: [ "feat/aar_edition" ]
-
+  workflow_run:
+      workflows:
+        - Continuous Upstream Merge
+      branches:
+        - feat/aar_edition
+      types: 
+        - completed
 jobs:
 
   build:
 
     runs-on: ubuntu-latest
     
-    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
+    if: ${{ github.event.workflow_run.conclusion == 'success' }} || ${{ github.event_name == 'push' && github.ref == 'refs/heads/feat/aar_edition' }} || github.event.pull_request.merged == true
     
     steps:
       - name: Checkout repository
