@@ -11,9 +11,7 @@ import { PaginationOptions } from '@docmost/db/pagination/pagination-options';
 import { executeWithPagination } from '@docmost/db/pagination/pagination';
 import { validate as isValidUUID } from 'uuid';
 import { ExpressionBuilder, sql } from 'kysely';
-import { ExpressionBuilder, sql } from 'kysely';
 import { DB } from '@docmost/db/types/db';
-import { jsonArrayFrom, jsonObjectFrom } from 'kysely/helpers/postgres';
 import { jsonArrayFrom, jsonObjectFrom } from 'kysely/helpers/postgres';
 import { SpaceMemberRepo } from '@docmost/db/repos/space/space-member.repo';
 
@@ -41,7 +39,6 @@ export class PageRepo {
     'updatedAt',
     'deletedAt',
     'contributorIds',
-    'contributorIds',
   ];
 
   async findById(
@@ -52,7 +49,6 @@ export class PageRepo {
       includeSpace?: boolean;
       includeCreator?: boolean;
       includeLastUpdatedBy?: boolean;
-      includeContributors?: boolean;
       includeContributors?: boolean;
       withLock?: boolean;
       trx?: KyselyTransaction;
@@ -72,10 +68,6 @@ export class PageRepo {
 
     if (opts?.includeLastUpdatedBy) {
       query = query.select((eb) => this.withLastUpdatedBy(eb));
-    }
-
-    if (opts?.includeContributors) {
-      query = query.select((eb) => this.withContributors(eb));
     }
 
     if (opts?.includeContributors) {
@@ -113,22 +105,9 @@ export class PageRepo {
     trx?: KyselyTransaction,
   ) {
     return dbOrTx(this.db, trx)
-    return this.updatePages(updatablePage, [pageId], trx);
-  }
-
-  async updatePages(
-    updatePageData: UpdatablePage,
-    pageIds: string[],
-    trx?: KyselyTransaction,
-  ) {
-    return dbOrTx(this.db, trx)
       .updateTable('pages')
       .set({ ...updatePageData, updatedAt: new Date() })
-      .where(
-        pageIds.some((pageId) => !isValidUUID(pageId)) ? 'slugId' : 'id',
-        'in',
-        pageIds,
-      )
+      .where(pageIds.some(pageId => !isValidUUID(pageId)) ? "slugId" : "id", "in", pageIds)
       .executeTakeFirst();
   }
 
@@ -182,11 +161,9 @@ export class PageRepo {
       .where('spaceId', 'in', userSpaceIds)
       .orderBy('updatedAt', 'desc');
 
-    const hasEmptyIds = userSpaceIds.length === 0;
     const result = executeWithPagination(query, {
       page: pagination.page,
       perPage: pagination.limit,
-      hasEmptyIds,
     });
 
     return result;
@@ -217,15 +194,6 @@ export class PageRepo {
         .select(['users.id', 'users.name', 'users.avatarUrl'])
         .whereRef('users.id', '=', 'pages.lastUpdatedById'),
     ).as('lastUpdatedBy');
-  }
-
-  withContributors(eb: ExpressionBuilder<DB, 'pages'>) {
-    return jsonArrayFrom(
-      eb
-        .selectFrom('users')
-        .select(['users.id', 'users.name', 'users.avatarUrl'])
-        .whereRef('users.id', '=', sql`ANY(${eb.ref('pages.contributorIds')})`),
-    ).as('contributors');
   }
 
   withContributors(eb: ExpressionBuilder<DB, 'pages'>) {

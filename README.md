@@ -9,6 +9,9 @@
 </div>
 <br />
 
+> [!NOTE]  
+> Docmost is currently in **beta**. We value your feedback as we progress towards a stable release.
+
 ## Getting started
 
 To get started with Docmost, please refer to our [documentation](https://docmost.com/docs).

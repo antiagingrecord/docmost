@@ -55,22 +55,19 @@ export class AuthService {
   ) { }
 
   async login(loginDto: LoginDto, workspaceId: string) {
-    const user = await this.userRepo.findByEmail(loginDto.email, workspaceId, {
-      includePassword: true,
-    });
-
-    const errorMessage = 'email or password does not match';
-    if (!user || user?.deletedAt) {
-      throw new UnauthorizedException(errorMessage);
-    }
-
-    const isPasswordMatch = await comparePasswordHash(
-      loginDto.password,
-      user.password,
+    const user = await this.userRepo.findByEmail(
+      loginDto.email,
+      workspaceId,
+      {
+        includePassword: true
+      }
     );
 
-    if (!isPasswordMatch) {
-      throw new UnauthorizedException(errorMessage);
+    if (
+      !user ||
+      !(await comparePasswordHash(loginDto.password, user.password))
+    ) {
+      throw new UnauthorizedException('email or password does not match');
     }
 
     user.lastLoginAt = new Date();
@@ -101,7 +98,7 @@ export class AuthService {
       includePassword: true,
     });
 
-    if (!user || user.deletedAt) {
+    if (!user) {
       throw new NotFoundException('User not found');
     }
 
@@ -140,7 +137,7 @@ export class AuthService {
       workspace.id,
     );
 
-    if (!user || user.deletedAt) {
+    if (!user) {
       return;
     }
 
@@ -183,7 +180,7 @@ export class AuthService {
     }
 
     const user = await this.userRepo.findById(userToken.userId, workspaceId);
-    if (!user || user.deletedAt) {
+    if (!user) {
       throw new NotFoundException('User not found');
     }
 

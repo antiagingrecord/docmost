@@ -78,13 +78,10 @@ export const Details = Node.create<DetailsOptions>({
       dom.setAttribute("data-type", this.name);
       btn.setAttribute("data-type", `${this.name}Button`);
       div.setAttribute("data-type", `${this.name}Container`);
-
-      if (editor.isEditable) {
-        if (node.attrs.open) {
-          dom.setAttribute("open", "true");
-        } else {
-          dom.removeAttribute("open");
-        }
+      if (node.attrs.open) {
+        dom.setAttribute("open", "true");
+      } else {
+        dom.removeAttribute("open");
       }
 
       ico.innerHTML = icon("right-line");
@@ -114,7 +111,6 @@ export const Details = Node.create<DetailsOptions>({
           if (updatedNode.type !== this.type) {
             return false;
           }
-          if (!editor.isEditable) return true;
           if (updatedNode.attrs.open) {
             dom.setAttribute("open", "true");
           } else {
@@ -136,10 +132,9 @@ export const Details = Node.create<DetailsOptions>({
           }
 
           const slice = state.doc.slice(range.start, range.end);
-
-          if (slice.content.firstChild.type.name === "detailsSummary")
-            return false;
-
+          
+          if(slice.content.firstChild.type.name === "detailsSummary") return false;
+          
           if (
             !state.schema.nodes.detailsContent.contentMatch.matchFragment(
               slice.content,
