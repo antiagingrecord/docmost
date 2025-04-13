@@ -104,11 +104,15 @@ export class WorkspaceService {
     let trialEndAt = undefined;
 
     const createdWorkspace = await executeTx(
+    let trialEndAt = undefined;
+
+    const createdWorkspace = await executeTx(
       this.db,
       async (trx) => {
         let hostname = undefined;
         let status = undefined;
         let plan = undefined;
+        let billingEmail = undefined;
         let billingEmail = undefined;
 
         if (this.environmentService.isCloud()) {
@@ -123,6 +127,7 @@ export class WorkspaceService {
           status = WorkspaceStatus.Active;
           plan = 'standard';
           billingEmail = user.email;
+          billingEmail = user.email;
         }
 
         // create workspace
@@ -135,6 +140,7 @@ export class WorkspaceService {
             status,
             trialEndAt,
             plan,
+            billingEmail,
             billingEmail,
           },
           trx,

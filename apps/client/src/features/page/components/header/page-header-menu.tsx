@@ -1,11 +1,13 @@
 import { ActionIcon, Group, Menu, Text, Tooltip } from "@mantine/core";
 import {
   IconArrowRight,
+  IconArrowRight,
   IconArrowsHorizontal,
   IconDots,
   IconFileExport,
   IconHistory,
   IconLink,
+  IconList,
   IconList,
   IconMessage,
   IconPrinter,
@@ -41,6 +43,7 @@ interface PageHeaderMenuProps {
 }
 export default function PageHeaderMenu({ readOnly }: PageHeaderMenuProps) {
   const { t } = useTranslation();
+  const { t } = useTranslation();
   const toggleAside = useToggleAside();
   const [yjsConnectionStatus] = useAtom(yjsConnectionStatusAtom);
 
@@ -48,6 +51,7 @@ export default function PageHeaderMenu({ readOnly }: PageHeaderMenuProps) {
     <>
       {yjsConnectionStatus === "disconnected" && (
         <Tooltip
+          label={t("Real-time editor connection lost. Retrying...")}
           label={t("Real-time editor connection lost. Retrying...")}
           openDelay={250}
           withArrow
@@ -59,12 +63,23 @@ export default function PageHeaderMenu({ readOnly }: PageHeaderMenuProps) {
       )}
 
       <Tooltip label={t("Comments")} openDelay={250} withArrow>
+      <Tooltip label={t("Comments")} openDelay={250} withArrow>
         <ActionIcon
           variant="default"
           style={{ border: "none" }}
           onClick={() => toggleAside("comments")}
         >
           <IconMessage size={20} stroke={2} />
+        </ActionIcon>
+      </Tooltip>
+
+      <Tooltip label={t("Table of contents")} openDelay={250} withArrow>
+        <ActionIcon
+          variant="default"
+          style={{ border: "none" }}
+          onClick={() => toggleAside("toc")}
+        >
+          <IconList size={20} stroke={2} />
         </ActionIcon>
       </Tooltip>
 
@@ -98,6 +113,10 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
   const [tree] = useAtom(treeApiAtom);
   const [exportOpened, { open: openExportModal, close: closeExportModal }] =
     useDisclosure(false);
+  const [
+    movePageModalOpened,
+    { open: openMovePageModal, close: closeMoveSpaceModal },
+  ] = useDisclosure(false);
   const [
     movePageModalOpened,
     { open: openMovePageModal, close: closeMoveSpaceModal },
@@ -166,6 +185,15 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
           </Menu.Item>
 
           <Menu.Divider />
+
+          {!readOnly && (
+            <Menu.Item
+              leftSection={<IconArrowRight size={16} />}
+              onClick={openMovePageModal}
+            >
+              {t("Move")}
+            </Menu.Item>
+          )}
 
           {!readOnly && (
             <Menu.Item
@@ -245,6 +273,14 @@ function PageActionMenu({ readOnly }: PageActionMenuProps) {
         id={page.id}
         open={exportOpened}
         onClose={closeExportModal}
+      />
+
+      <MovePageModal
+        pageId={page.id}
+        slugId={page.slugId}
+        currentSpaceSlug={spaceSlug}
+        onClose={closeMoveSpaceModal}
+        open={movePageModalOpened}
       />
 
       <MovePageModal
