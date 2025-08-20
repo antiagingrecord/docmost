@@ -47,7 +47,10 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          # Build context moved to vendor/app where the application now lives
+          context: ./vendor/app
+          # If your Dockerfile is inside vendor/app, you can omit `file:`. If it's named differently or located elsewhere, set file: ./vendor/app/Dockerfile
+          file: ./vendor/app/Dockerfile
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/docmost:latest
