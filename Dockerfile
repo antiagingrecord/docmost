@@ -9,6 +9,7 @@ COPY . .
 
 RUN npm install -g pnpm@10.4.0
 RUN pnpm install --frozen-lockfile
+RUN pnpm nx run server:migration:codegen
 RUN pnpm build
 
 FROM base AS installer
