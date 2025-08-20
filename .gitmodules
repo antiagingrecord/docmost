@@ -1,0 +1,4 @@
+[submodule "vendor/B"]
+	path = vendor/B
+	url = https://github.com/auxa-m45/docmost.git
+	branch = feat/aar_edition
