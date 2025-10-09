@@ -1,0 +1,54 @@
+name: Sync upstream feat/aar_edition and deploy
+
+on:
+  schedule:
+    - cron: '0 * * * *' # 毎時
+  workflow_dispatch:
+
+jobs:
+  sync-and-dispatch:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote and fetch
+        run: |
+          git remote add upstream https://github.com/auxa-m45/docmost.git || true
+          git fetch upstream --no-tags
+
+      - name: Pull subtree from upstream/feat/aar_edition
+        id: subtree
+        run: |
+          set -e
+          git fetch upstream feat/aar_edition
+          # Try subtree pull; don't fail the job on non-zero exit so we can detect changes gracefully
+          git subtree pull --prefix=vendor/app upstream feat/aar_edition --squash || true
+
+          # detect whether vendor/app changed
+          if git status --porcelain | grep -q 'vendor/app' ; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit & push changes to origin
+        if: steps.subtree.outputs.changed == 'true'
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git add vendor/app || true
+          git commit -m "chore(sync): pull upstream feat/aar_edition into vendor/app" || echo "no changes to commit"
+          BRANCH=${GITHUB_REF#refs/heads/}
+          git push https://${REPO_TOKEN}@github.com/${{ github.repository }} HEAD:"${BRANCH}"
