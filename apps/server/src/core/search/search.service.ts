@@ -18,13 +18,14 @@ export class SearchService {
   ) {}
 
   async searchPage(
-    query: string,
     searchParams: SearchDTO,
     opts: {
       userId?: string;
       workspaceId: string;
     },
   ): Promise<SearchResponseDto[]> {
+    const { query } = searchParams;
+
     if (query.length < 1) {
       return;
     }
@@ -97,7 +98,13 @@ export class SearchService {
       // search in shares
       const shareId = searchParams.shareId;
       const share = await this.shareRepo.findById(shareId);
-      if (!share || share.workspaceId !== opts.workspaceId) {
+      // If the share doesn't exist, belongs to another workspace or
+      // has search indexing disabled, do not allow public search.
+      if (
+        !share ||
+        share.workspaceId !== opts.workspaceId ||
+        share.searchIndexing === false
+      ) {
         return [];
       }
 
