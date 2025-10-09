@@ -42,6 +42,21 @@ jobs:
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
 
+      - name: Remove problematic 'ee' submodule entries
+        run: |
+          set -e
+          # Remove submodule sections that reference 'ee' from any .gitmodules under vendor/app
+          find vendor/app -type f -name .gitmodules -print0 | xargs -0 -n1 -I{} bash -c '
+            f="{}"
+            perl -0777 -pe "s/\[submodule \"[^\]]*\"\][\s\S]*?path\s*=\s*[^\n]*ee[^\n]*[\s\S]*?(?=(\n\[submodule|\z))//g" "$f" > "$f.tmp" || true
+            mv "$f.tmp" "$f" || true
+          '
+
+          # Remove local git config section if present (avoid failing if not present)
+          git config --local --remove-section "submodule.vendor/app/apps/server/src/ee" || true
+          # Sync submodule config to ensure no stale entries
+          git submodule sync --recursive || true
+
       - name: Commit & push changes to origin
         if: steps.subtree.outputs.changed == 'true'
         env:
