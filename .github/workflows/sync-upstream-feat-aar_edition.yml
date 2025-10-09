@@ -18,13 +18,18 @@ jobs:
           fetch-depth: 0
           submodules: false
 
-      - name: Configure git user
+      - name: Configure git (user & submodule guard)
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # --- 特定 submodule のみ除外する（CI 全体の保険）---
+          git config --global submodule.recurse false
+          git config --global submodule.active ':(top,exclude)vendor/app/apps/server/src/ee'
 
       - name: Add upstream remote and fetch
         run: |
+          set -e
           git remote add upstream https://github.com/auxa-m45/docmost.git || true
           git fetch upstream --no-tags
 
@@ -33,30 +38,24 @@ jobs:
         run: |
           set -e
           git fetch upstream feat/aar_edition
-          # Try subtree pull; don't fail the job on non-zero exit so we can detect changes gracefully
-          git subtree pull --prefix=vendor/app upstream feat/aar_edition --squash || true
+          # submodule 再帰は明示的にも無効化（念のため）
+          git -c submodule.recurse=false subtree pull --prefix=vendor/app upstream feat/aar_edition --squash || true
 
-          # detect whether vendor/app changed
-          if git status --porcelain | grep -q 'vendor/app' ; then
+          # --- private submodule 'ee' を「無いものとして扱う」 ---
+          # gitlink (mode 160000) ならインデックスから除去する
+          if git ls-files -s -- vendor/app/apps/server/src/ee 2>/dev/null | awk '{print $1}' | grep -q '^160000$'; then
+            git rm -r --cached vendor/app/apps/server/src/ee || true
+            # 将来の subtree pull でも作業ツリーに現れないよう .gitignore 保護
+            echo '/vendor/app/apps/server/src/ee/' >> .gitignore
+            git add .gitignore
+          fi
+
+          # vendor/app 配下に変更があるかチェック
+          if git status --porcelain | grep -q '^.. vendor/app'; then
             echo "changed=true" >> $GITHUB_OUTPUT
           else
             echo "changed=false" >> $GITHUB_OUTPUT
           fi
-
-      - name: Remove problematic 'ee' submodule entries
-        run: |
-          set -e
-          # Remove submodule sections that reference 'ee' from any .gitmodules under vendor/app
-          find vendor/app -type f -name .gitmodules -print0 | xargs -0 -n1 -I{} bash -c '
-            f="{}"
-            perl -0777 -pe "s/\[submodule \"[^\]]*\"\][\s\S]*?path\s*=\s*[^\n]*ee[^\n]*[\s\S]*?(?=(\n\[submodule|\z))//g" "$f" > "$f.tmp" || true
-            mv "$f.tmp" "$f" || true
-          '
-
-          # Remove local git config section if present (avoid failing if not present)
-          git config --local --remove-section "submodule.vendor/app/apps/server/src/ee" || true
-          # Sync submodule config to ensure no stale entries
-          git submodule sync --recursive || true
 
       - name: Commit & push changes to origin
         if: steps.subtree.outputs.changed == 'true'
@@ -65,6 +64,6 @@ jobs:
         run: |
           set -e
           git add vendor/app || true
-          git commit -m "chore(sync): pull upstream feat/aar_edition into vendor/app" || echo "no changes to commit"
+          git commit -m "chore(sync): pull upstream feat/aar_edition into vendor/app (ignore private submodule ee)" || echo "no changes to commit"
           BRANCH=${GITHUB_REF#refs/heads/}
           git push https://${REPO_TOKEN}@github.com/${{ github.repository }} HEAD:"${BRANCH}"
