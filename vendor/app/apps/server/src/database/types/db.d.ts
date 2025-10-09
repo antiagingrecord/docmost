@@ -3,15 +3,18 @@
  * Please do not edit it manually.
  */
 
-import type { ColumnType } from "kysely";
+import type { ColumnType } from 'kysely';
 
-export type AuthProviderType = "google" | "oidc" | "saml";
+export type Generated<T> =
+  T extends ColumnType<infer S, infer I, infer U>
+    ? ColumnType<S, I | undefined, U>
+    : ColumnType<T, T | undefined, T>;
 
-export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
-  ? ColumnType<S, I | undefined, U>
-  : ColumnType<T, T | undefined, T>;
-
-export type Int8 = ColumnType<string, bigint | number | string, bigint | number | string>;
+export type Int8 = ColumnType<
+  string,
+  bigint | number | string,
+  bigint | number | string
+>;
 
 export type Json = JsonValue;
 
@@ -27,6 +30,18 @@ export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
 
 export type Timestamp = ColumnType<Date, Date | string, Date | string>;
 
+export interface ApiKeys {
+  createdAt: Generated<Timestamp>;
+  deletedAt: Timestamp | null;
+  expiresAt: Timestamp | null;
+  id: Generated<string>;
+  lastUsedAt: Timestamp | null;
+  name: string | null;
+  updatedAt: Generated<Timestamp>;
+  creatorId: string;
+  workspaceId: string;
+}
+
 export interface Attachments {
   createdAt: Generated<Timestamp>;
   creatorId: string;
@@ -39,6 +54,8 @@ export interface Attachments {
   mimeType: string | null;
   pageId: string | null;
   spaceId: string | null;
+  textContent: string | null;
+  tsv: string | null;
   type: string | null;
   updatedAt: Generated<Timestamp>;
   workspaceId: string;
@@ -62,13 +79,24 @@ export interface AuthProviders {
   deletedAt: Timestamp | null;
   id: Generated<string>;
   isEnabled: Generated<boolean>;
+  groupSync: Generated<boolean>;
+  ldapBaseDn: string | null;
+  ldapBindDn: string | null;
+  ldapBindPassword: string | null;
+  ldapTlsCaCert: string | null;
+  ldapTlsEnabled: Generated<boolean | null>;
+  ldapUrl: string | null;
+  ldapUserAttributes: Json | null;
+  ldapUserSearchFilter: string | null;
+  ldapConfig: Json | null;
+  settings: Json | null;
   name: string;
   oidcClientId: string | null;
   oidcClientSecret: string | null;
   oidcIssuer: string | null;
   samlCertificate: string | null;
   samlUrl: string | null;
-  type: AuthProviderType;
+  type: string;
   updatedAt: Generated<Timestamp>;
   workspaceId: string;
 }
@@ -276,6 +304,7 @@ export interface Users {
   lastActiveAt: Timestamp | null;
   lastLoginAt: Timestamp | null;
   locale: string | null;
+  hasGeneratedPassword: Generated<boolean | null>;
   name: string | null;
   password: string | null;
   role: string | null;
@@ -339,6 +368,7 @@ export interface Workspaces {
 }
 
 export interface DB {
+  apiKeys: ApiKeys;
   attachments: Attachments;
   authAccounts: AuthAccounts;
   authProviders: AuthProviders;
