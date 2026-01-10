@@ -1,16 +1,20 @@
-name: Sync upstream feat/aar_edition and deploy
+name: Sync upstream feat/aar_edition, Build Docker, Deploy to VPS
 
 on:
   schedule:
-    - cron: '0 * * * *' # 毎時
+    - cron: "0 * * * *" # 毎時
   workflow_dispatch:
 
 jobs:
-  sync-and-dispatch:
+  sync-and-build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write
+
+    outputs:
+      changed: ${{ steps.subtree.outputs.changed }}
+      new_sha: ${{ steps.push.outputs.new_sha }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,7 +27,6 @@ jobs:
           set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # --- 特定 submodule のみ除外する（CI 全体の保険）---
           git config --global submodule.recurse false
           git config --global submodule.active ':(top,exclude)vendor/app/apps/server/src/ee'
 
@@ -38,32 +41,118 @@ jobs:
         run: |
           set -e
           git fetch upstream feat/aar_edition
-          # submodule 再帰は明示的にも無効化（念のため）
-          git -c submodule.recurse=false subtree pull --prefix=vendor/app upstream feat/aar_edition --squash || true
 
-          # --- private submodule 'ee' を「無いものとして扱う」 ---
-          # gitlink (mode 160000) ならインデックスから除去する
+          git -c submodule.recurse=false subtree pull \
+            --prefix=vendor/app upstream feat/aar_edition --squash || true
+
           if git ls-files -s -- vendor/app/apps/server/src/ee 2>/dev/null | awk '{print $1}' | grep -q '^160000$'; then
             git rm -r --cached vendor/app/apps/server/src/ee || true
-            # 将来の subtree pull でも作業ツリーに現れないよう .gitignore 保護
             echo '/vendor/app/apps/server/src/ee/' >> .gitignore
             git add .gitignore
           fi
 
-          # vendor/app 配下に変更があるかチェック
           if git status --porcelain | grep -q '^.. vendor/app'; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Commit & push changes to origin
+        id: push
         if: steps.subtree.outputs.changed == 'true'
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
-          git add vendor/app || true
-          git commit -m "chore(sync): pull upstream feat/aar_edition into vendor/app (ignore private submodule ee)" || echo "no changes to commit"
+          git add vendor/app .gitignore || true
+          git commit -m "chore(sync): pull upstream feat/aar_edition into vendor/app (ignore private submodule ee)"
           BRANCH=${GITHUB_REF#refs/heads/}
           git push https://${REPO_TOKEN}@github.com/${{ github.repository }} HEAD:"${BRANCH}"
+          echo "new_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Skip build when no changes
+        if: steps.subtree.outputs.changed != 'true'
+        run: echo "No changes from upstream. Skip build and deploy."
+
+      - name: Set up Docker Buildx
+        if: steps.subtree.outputs.changed == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: steps.subtree.outputs.changed == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        if: steps.subtree.outputs.changed == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./vendor/app
+          file: ./vendor/app/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/docmost:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/docmost:${{ steps.push.outputs.new_sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Docker build failure Discord Notification
+        if: steps.subtree.outputs.changed == 'true' && failure()
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DOCKERHUB_WEBHOOK }}
+          DISCORD_AVATAR: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+        with:
+          args: |
+            ❌ **Docker Build が失敗しました**
+            リポジトリ: ${{ github.repository }}
+            対象ブランチ: feat/aar_edition
+            コミット: ${{ steps.push.outputs.new_sha }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: sync-and-build
+
+    if: needs.sync-and-build.outputs.changed == 'true' && needs.sync-and-build.result == 'success'
+
+    environment: production
+
+    steps:
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            cd ~/docmost
+            ./update.sh
+
+      - name: Deploy Success Discord Notification
+        if: success()
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_AVATAR: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+        with:
+          args: |
+            ✅ **VPSへのデプロイが完了しました**
+            リポジトリ: ${{ github.repository }}
+            対象ブランチ: feat/aar_edition
+            コミット: ${{ needs.sync-and-build.outputs.new_sha }}
+
+      - name: Deploy Failure Discord Notification
+        if: failure()
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_AVATAR: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+        with:
+          args: |
+            ❌ **VPSへのデプロイが失敗しました**
+            リポジトリ: ${{ github.repository }}
+            対象ブランチ: feat/aar_edition
+            コミット: ${{ needs.sync-and-build.outputs.new_sha }}
